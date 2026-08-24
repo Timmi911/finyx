@@ -1,0 +1,122 @@
+#!/bin/sh
+# post-commit hook: 提交成功后自动运行全量构建 + E2E 测试
+#
+# 执行步骤：
+#   1. npm run build       — Vite 生产构建（验证无编译错误）
+#   2. npm run test:ci     — E2E 认证流程（注册/登录/刷新/登出/重登 5 步）
+#
+# 与 pre-commit 的区别：
+#   - pre-commit 只跑 e2e:auth（快速反馈，约 10-90s）
+#   - post-commit 额外跑 build（约 30-60s），不阻塞提交
+#
+# 跳过本钩子：git commit --no-verify（同时跳过 pre-commit）
+#
+# 失败处理：post-commit 无法阻止已完成的提交，仅打印警告。
+#   若需修复，请 git reset --soft HEAD~1 后修正重新提交。
+
+cd "$(git rev-parse --show-toplevel)" || exit 0
+
+# 日志目录：项目内 e2e/logs/（已被 .gitignore 排除，不污染仓库）
+LOG_DIR="e2e/logs"
+mkdir -p "$LOG_DIR"
+BUILD_LOG="$LOG_DIR/post-commit-build.log"
+TEST_LOG="$LOG_DIR/post-commit-test.log"
+
+# ---- 调试日志辅助函数 ----
+# 时间戳格式：2026-08-24 11:15:19
+ts() { date '+%Y-%m-%d %H:%M:%S'; }
+
+# 秒级耗时（兼容 macOS BSD date 与 Linux GNU date）
+now_epoch() {
+  case "$(uname -s)" in
+    Darwin) date -u +%s ;;
+    *) date +%s ;;
+  esac
+}
+
+# 在指定日志文件写入头部（截断模式，覆盖上次记录）
+# 用法: log_header LOG_FILE STEP_NAME
+log_header() {
+  {
+    echo "============================================================"
+    echo " $2 @ $(ts)"
+    echo " commit: ${commit_short} - ${commit_msg}"
+    echo " cwd: $(pwd)"
+    echo "============================================================"
+  } > "$1"
+}
+
+# 在指定日志文件写入尾部（追加模式）
+# 用法: log_footer LOG_FILE STEP_NAME STATUS DURATION
+log_footer() {
+  {
+    echo ""
+    echo "============================================================"
+    echo " $2 finished @ $(ts)"
+    echo " status: $3"
+    echo " duration: ${4}s"
+    echo "============================================================"
+  } >> "$1"
+}
+
+hook_start=$(now_epoch)
+commit_short=$(git rev-parse --short HEAD 2>/dev/null || echo unknown)
+commit_msg=$(git log -1 --format=%s 2>/dev/null || echo unknown)
+
+echo ""
+echo "▶ post-commit: 运行 build + test:ci ..."
+echo "  commit: ${commit_short} - ${commit_msg}"
+
+# 步骤 1：构建
+echo "  [1/2] npm run build"
+step_start=$(now_epoch)
+log_header "$BUILD_LOG" "build"
+npm run build >> "$BUILD_LOG" 2>&1
+build_status=$?
+step_end=$(now_epoch)
+step_dur=$((step_end - step_start))
+log_footer "$BUILD_LOG" "build" "$build_status" "$step_dur"
+
+if [ $build_status -ne 0 ]; then
+  {
+    echo ""
+    echo "============================================================"
+    echo " ABORTED at step 1 (build) @ $(ts)"
+    echo " post-commit exited without running step 2 (test:ci)"
+    echo "============================================================"
+  } >> "$BUILD_LOG"
+  echo "  ✗ 构建失败 status=$build_status duration=${step_dur}s（详见 $BUILD_LOG）"
+  echo "  ⚠ 提交已完成，但构建未通过。请 git reset --soft HEAD~1 修正后重新提交。"
+  tail -n 20 "$BUILD_LOG" 2>/dev/null
+  exit 0
+fi
+echo "  ✓ 构建通过（${step_dur}s）"
+
+# 步骤 2：E2E 测试
+echo "  [2/2] npm run test:ci"
+step_start=$(now_epoch)
+log_header "$TEST_LOG" "test:ci"
+npm run test:ci >> "$TEST_LOG" 2>&1
+test_status=$?
+step_end=$(now_epoch)
+step_dur=$((step_end - step_start))
+log_footer "$TEST_LOG" "test:ci" "$test_status" "$step_dur"
+
+if [ $test_status -ne 0 ]; then
+  {
+    echo ""
+    echo "============================================================"
+    echo " ABORTED at step 2 (test:ci) @ $(ts)"
+    echo " post-commit exited after build passed but test failed"
+    echo "============================================================"
+  } >> "$TEST_LOG"
+  echo "  ✗ E2E 测试失败 status=$test_status duration=${step_dur}s（详见 $TEST_LOG）"
+  echo "  ⚠ 提交已完成，但测试未通过。请 git reset --soft HEAD~1 修正后重新提交。"
+  tail -n 20 "$TEST_LOG" 2>/dev/null
+  exit 0
+fi
+echo "  ✓ E2E 测试通过（${step_dur}s）"
+
+hook_end=$(now_epoch)
+echo "✓ post-commit 全部通过 total_duration=$((hook_end - hook_start))s"
+exit 0

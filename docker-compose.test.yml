@@ -1,0 +1,39 @@
+# docker-compose.test.yml — 容器化测试编排
+#
+# 每个服务隔离运行一套测试，互不干扰
+# 用法：docker compose -f docker-compose.test.yml run --rm unit
+#       docker compose -f docker-compose.test.yml run --rm e2e
+#       docker compose -f docker-compose.test.yml run --rm verify
+#       docker compose -f docker-compose.test.yml run --rm all
+
+services:
+  # 公共构建配置（被各服务 extends 引用）
+  base:
+    build:
+      context: .
+      dockerfile: Dockerfile.test
+    shm_size: 2g
+
+  # 1. 单元测试（install-hooks 路径解析）
+  unit:
+    extends: base
+    command: npm test
+
+  # 2. E2E 认证流程（用 Playwright 内置 Chromium）
+  e2e:
+    extends: base
+    environment:
+      - E2E_BROWSER_CHANNEL=chromium
+    command: npm run e2e:auth
+
+  # 3. 构建失败日志验证
+  verify:
+    extends: base
+    command: npm run verify:build-failure
+
+  # 全部三套测试依次运行
+  all:
+    extends: base
+    environment:
+      - E2E_BROWSER_CHANNEL=chromium
+    command: sh -c "npm test && npm run e2e:auth && npm run verify:build-failure"

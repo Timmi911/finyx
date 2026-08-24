@@ -1,0 +1,30 @@
+#!/bin/sh
+# pre-commit hook: 提交前自动运行认证流程 E2E 测试
+#
+# 覆盖场景（npm run e2e:auth）：
+#   1. 未登录访问首页 → 守卫重定向 /login
+#   2. 注册新用户 → 跳转首页 /
+#   3. 刷新页面 → 保持登录态
+#   4. 登出 → 回到 /login
+#   5. 重新登录 → 跳转首页 /
+#
+# 跳过本次检查：git commit --no-verify
+
+echo "▶ 运行认证流程 E2E 测试 (npm run e2e:auth)..."
+
+# 切换到仓库根目录（git hook 的 cwd 可能是子目录）
+cd "$(git rev-parse --show-toplevel)" || exit 1
+
+# 运行测试
+npm run e2e:auth
+status=$?
+
+if [ $status -ne 0 ]; then
+  echo ""
+  echo "✗ E2E 测试失败，提交已中止。"
+  echo "  修复后重新提交，或 git commit --no-verify 跳过检查。"
+  exit 1
+fi
+
+echo "✓ E2E 测试通过，继续提交。"
+exit 0

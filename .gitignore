@@ -1,0 +1,24 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
+# Environment
+*.local
+.env
+.env.*
+
+# Editor / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# E2E test artifacts
+e2e/screenshots/
+e2e/logs/
+
+# Logs
+*.log
+npm-debug.log*

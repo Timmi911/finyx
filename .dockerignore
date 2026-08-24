@@ -1,0 +1,10 @@
+node_modules/
+dist/
+e2e/logs/
+e2e/screenshots/
+.git/
+android/
+ios/
+*.log
+.env
+.env.*

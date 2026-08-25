@@ -1,0 +1,42 @@
+# docker-compose.prod.yml — 生产部署编排
+#
+# 前端（Nginx）+ 后端（Node API）+ 持久化数据卷
+#
+# 用法：
+#   docker compose -f docker-compose.prod.yml up -d
+#   docker compose -f docker-compose.prod.yml logs -f
+#   docker compose -f docker-compose.prod.yml down
+
+services:
+  # 后端 API（Express + TypeScript）
+  backend:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    container_name: finyx-api
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    volumes:
+      # 持久化 JSON 数据库
+      - finyx-data:/app/data
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      # JWT 密钥（生产环境请替换为强随机值）
+      - JWT_SECRET=${JWT_SECRET:-change-me-in-production}
+
+  # 前端（Nginx 静态托管 + API 代理）
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.prod
+    container_name: finyx-web
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    depends_on:
+      - backend
+
+volumes:
+  finyx-data:

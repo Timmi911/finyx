@@ -2,7 +2,11 @@ node_modules/
 dist/
 e2e/logs/
 e2e/screenshots/
+server/data/
+server/.test-tmp/
+server/dist/
 .git/
+.github/
 android/
 ios/
 *.log

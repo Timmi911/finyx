@@ -19,6 +19,10 @@ Thumbs.db
 e2e/screenshots/
 e2e/logs/
 
+# Runtime data (database, temp files)
+server/data/
+server/.test-tmp/
+
 # Logs
 *.log
 npm-debug.log*

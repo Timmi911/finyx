@@ -16,7 +16,7 @@
 
 ### 环境要求
 
-- Node.js >= 20
+- Node.js >= 22（单元测试使用 `--experimental-strip-types` 直接运行 .ts 文件）
 - npm
 - Git
 

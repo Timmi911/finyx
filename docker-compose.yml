@@ -1,17 +1,17 @@
-# docker-compose.test.yml — 容器化测试编排
+# docker-compose.yml — 容器化测试编排
 #
 # 每个服务隔离运行一套测试，互不干扰
-# 用法：docker compose -f docker-compose.test.yml run --rm unit
-#       docker compose -f docker-compose.test.yml run --rm e2e
-#       docker compose -f docker-compose.test.yml run --rm verify
-#       docker compose -f docker-compose.test.yml run --rm all
+# 用法：docker compose run --rm unit
+#       docker compose run --rm e2e
+#       docker compose run --rm verify
+#       docker compose run --rm all
 
 services:
   # 公共构建配置（被各服务 extends 引用）
   base:
     build:
       context: .
-      dockerfile: Dockerfile.test
+      dockerfile: Dockerfile
     shm_size: 2g
 
   # 1. 单元测试（install-hooks 路径解析）

@@ -18,7 +18,8 @@ WORKDIR /app
 COPY package.json package-lock.json* ./
 
 # 安装依赖（含 Playwright 浏览器二进制）
-RUN npm ci || npm install
+# --legacy-peer-deps: 绕过 @capacitor/ios@8 与 @capacitor/core@6 的 peer dep 冲突
+RUN npm ci --legacy-peer-deps || npm install --legacy-peer-deps
 
 # 复制源码
 COPY . .

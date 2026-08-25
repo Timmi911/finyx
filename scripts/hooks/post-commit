@@ -14,7 +14,9 @@
 # 失败处理：post-commit 无法阻止已完成的提交，仅打印警告。
 #   若需修复，请 git reset --soft HEAD~1 后修正重新提交。
 
-cd "$(git rev-parse --show-toplevel)" || exit 0
+# 切换到仓库根目录；非 git 环境下（如 Docker 容器）退化到当前目录
+REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null) || REPO_ROOT="$(pwd)"
+cd "$REPO_ROOT" || exit 0
 
 # 日志目录：项目内 e2e/logs/（已被 .gitignore 排除，不污染仓库）
 LOG_DIR="e2e/logs"

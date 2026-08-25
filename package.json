@@ -11,7 +11,7 @@
     "install:hooks": "node scripts/install-hooks.mjs",
     "verify:build-failure": "node e2e/verify-build-failure.mjs",
     "test": "node --experimental-strip-types --test \"src/__tests__/**/*.test.ts\"",
-    "test:docker": "docker compose -f docker-compose.test.yml run --rm all"
+    "test:docker": "docker compose run --rm all"
   },
   "dependencies": {
     "@capacitor/android": "^6.2.1",

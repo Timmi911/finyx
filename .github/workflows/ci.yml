@@ -1,0 +1,91 @@
+# CI/CD — push/PR 时自动运行测试
+#
+# 三个并行 job：
+#   1. unit       — 单元测试（install-hooks 路径解析，5 种 git 布局）
+#   2. e2e        — E2E 认证流程（注册/登录/刷新/登出/重登 5 步）
+#   3. build      — Vite 生产构建（验证无编译错误）
+#
+# 触发：push 到 master、pull request 到 master
+
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+# 同一分支的新 push 取消旧的运行
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ──────────────────────────────────────
+  # 1. 单元测试
+  # ──────────────────────────────────────
+  unit:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+      - run: npm ci --legacy-peer-deps
+      - run: npm test
+
+  # ──────────────────────────────────────
+  # 2. E2E 认证流程
+  # ──────────────────────────────────────
+  e2e:
+    name: E2E Auth Flow
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+      # 安装根目录 + server 依赖
+      - run: npm ci --legacy-peer-deps
+      - run: cd server && npm ci --legacy-peer-deps
+      # 安装 Playwright Chromium
+      - run: npx playwright install --with-deps chromium
+      # 运行 E2E（脚本自动拉起前后端 dev 服务器）
+      - run: npm run e2e:auth
+        env:
+          E2E_BROWSER_CHANNEL: chromium
+      # 上传截图（失败时调试用）
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: e2e-screenshots
+          path: e2e/screenshots/
+          if-no-files-found: ignore
+          retention-days: 7
+
+  # ──────────────────────────────────────
+  # 3. 生产构建
+  # ──────────────────────────────────────
+  build:
+    name: Production Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+      - run: npm ci --legacy-peer-deps
+      - run: npm run build
+      # 上传构建产物
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+          retention-days: 7
